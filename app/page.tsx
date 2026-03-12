@@ -1,65 +1,118 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import NavBar from "../components/NavBar";
+import { supabase } from "../lib/supabase";
+
+type StockAlertRow = {
+  quantity: number;
+  articles: {
+    min_threshold: number;
+  } | null;
+};
+
+export default function HomePage() {
+  const router = useRouter();
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  const [articleCount, setArticleCount] = useState(0);
+  const [locationCount, setLocationCount] = useState(0);
+  const [stockCount, setStockCount] = useState(0);
+  const [alertCount, setAlertCount] = useState(0);
+
+  useEffect(() => {
+    async function initPage() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        router.push("/login");
+        return;
+      }
+
+      const { count: articles } = await supabase
+        .from("articles")
+        .select("*", { count: "exact", head: true });
+
+      const { count: locations } = await supabase
+        .from("locations")
+        .select("*", { count: "exact", head: true });
+
+      const { count: stock } = await supabase
+        .from("stock_levels")
+        .select("*", { count: "exact", head: true });
+
+      const { data: stockRows, error: alertError } = await supabase
+        .from("stock_levels")
+        .select(`
+          quantity,
+          articles(min_threshold)
+        `);
+
+      let computedAlerts = 0;
+
+      if (!alertError && stockRows) {
+        computedAlerts = (stockRows as StockAlertRow[]).filter((row) => {
+          const qty = Number(row.quantity ?? 0);
+          const threshold = Number(row.articles?.min_threshold ?? 0);
+          return qty < threshold;
+        }).length;
+      }
+
+      setArticleCount(articles || 0);
+      setLocationCount(locations || 0);
+      setStockCount(stock || 0);
+      setAlertCount(computedAlerts);
+      setCheckingAuth(false);
+    }
+
+    initPage();
+  }, [router]);
+
+  if (checkingAuth) {
+    return (
+      <main className="min-h-screen bg-slate-50 p-10">
+        <p>Chargement...</p>
+      </main>
+    );
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main className="min-h-screen bg-slate-50 text-slate-900">
+      <div className="mx-auto max-w-6xl p-6 md:p-10">
+        <div className="mb-8 rounded-3xl bg-slate-900 p-6 text-white shadow-lg">
+          <h1 className="text-3xl font-bold md:text-4xl">Libersa Stock</h1>
+          <p className="mt-2 text-sm text-slate-200 md:text-base">
+            Tableau de bord de gestion du stock
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <NavBar />
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+            <p className="text-sm text-slate-500">Articles</p>
+            <p className="mt-2 text-3xl font-bold">{articleCount}</p>
+          </div>
+
+          <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+            <p className="text-sm text-slate-500">Emplacements</p>
+            <p className="mt-2 text-3xl font-bold">{locationCount}</p>
+          </div>
+
+          <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+            <p className="text-sm text-slate-500">Lignes de stock</p>
+            <p className="mt-2 text-3xl font-bold">{stockCount}</p>
+          </div>
+
+          <div className="rounded-3xl bg-red-50 p-6 shadow-sm ring-1 ring-red-200">
+            <p className="text-sm text-red-600">Alertes stock bas</p>
+            <p className="mt-2 text-3xl font-bold text-red-700">{alertCount}</p>
+          </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }
