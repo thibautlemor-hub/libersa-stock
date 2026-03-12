@@ -7,14 +7,39 @@ import { supabase } from "../../lib/supabase";
 type AlertRow = {
   id: string;
   quantity: number;
-  articles: {
-    name: string;
-    min_threshold: number;
-  } | null;
-  locations: {
-    name: string;
-  } | null;
+  articles:
+    | {
+        name: string;
+        min_threshold: number;
+      }
+    | {
+        name: string;
+        min_threshold: number;
+      }[]
+    | null;
+  locations:
+    | {
+        name: string;
+      }
+    | {
+        name: string;
+      }[]
+    | null;
 };
+
+function getArticleData(
+  article: AlertRow["articles"]
+): { name: string; min_threshold: number } | null {
+  if (!article) return null;
+  return Array.isArray(article) ? article[0] ?? null : article;
+}
+
+function getLocationData(
+  location: AlertRow["locations"]
+): { name: string } | null {
+  if (!location) return null;
+  return Array.isArray(location) ? location[0] ?? null : location;
+}
 
 export default function AlertesPage() {
   const [rows, setRows] = useState<AlertRow[]>([]);
@@ -47,7 +72,8 @@ export default function AlertesPage() {
 
   const alerts = useMemo(() => {
     return rows.filter((row) => {
-      const threshold = Number(row.articles?.min_threshold ?? 0);
+      const article = getArticleData(row.articles);
+      const threshold = Number(article?.min_threshold ?? 0);
       const quantity = Number(row.quantity ?? 0);
       return quantity < threshold;
     });
@@ -80,7 +106,9 @@ export default function AlertesPage() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {alerts.map((row) => {
-                const threshold = Number(row.articles?.min_threshold ?? 0);
+                const article = getArticleData(row.articles);
+                const location = getLocationData(row.locations);
+                const threshold = Number(article?.min_threshold ?? 0);
                 const quantity = Number(row.quantity ?? 0);
 
                 return (
@@ -89,12 +117,12 @@ export default function AlertesPage() {
                     className="rounded-2xl border border-red-200 bg-red-50 p-4"
                   >
                     <p className="text-lg font-semibold">
-                      {row.articles?.name || "Article inconnu"}
+                      {article?.name || "Article inconnu"}
                     </p>
 
                     <p className="mt-3 text-sm text-slate-600">Emplacement</p>
                     <p className="font-medium">
-                      {row.locations?.name || "Non défini"}
+                      {location?.name || "Non défini"}
                     </p>
 
                     <div className="mt-4 grid gap-2 text-sm">
