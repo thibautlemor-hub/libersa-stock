@@ -60,7 +60,7 @@ export default function AlertesPage() {
       console.error("Erreur alertes :", error);
       setRows([]);
     } else {
-      setRows((data as AlertRow[]) || []);
+      setRows(((data as unknown) as AlertRow[]) || []);
     }
 
     setLoading(false);
